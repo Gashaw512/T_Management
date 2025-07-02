@@ -1,55 +1,51 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-// Removed i18next import
-// import { useTranslation } from 'react-i18next';
 import {
   PencilSquareIcon,
   TrashIcon,
   Squares2X2Icon,
-  FolderIcon, // Re-added as it's used
-  PlusCircleIcon, // Re-added as it's used
-  Bars3Icon, // Added for list view button
+  FolderIcon,
+  PlusCircleIcon,
+  Bars3Icon,
 } from '@heroicons/react/24/solid';
 import ConfirmDialog from './Shared/ConfirmDialog';
 import AreaModal from './Area/AreaModal';
 import { useStore } from '../store/useStore';
 import { fetchAreas, createArea, updateArea, deleteArea } from '../utils/areasService';
 import { Area } from '../entities/Area';
-import { useModalEvents } from '../hooks/useModalEvents'; // Assuming this hook is still needed
-
+import { useModalEvents } from '../hooks/useModalEvents';
 
 const Areas: React.FC = () => {
-  // Removed useTranslation hook call
-  // const { t } = useTranslation();
   const { areas, setAreas, setLoading, setError, isLoading, isError } = useStore((state) => state.areasStore);
 
   const [isAreaModalOpen, setIsAreaModalOpen] = useState<boolean>(false);
   const [selectedArea, setSelectedArea] = useState<Area | null>(null);
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState<boolean>(false);
   const [areaToDelete, setAreaToDelete] = useState<Area | null>(null);
-  const [viewMode, setViewMode] = useState<"cards" | "list">("cards"); // Added for view mode
-  const [hoveredAreaId, setHoveredAreaId] = useState<number | null>(null); // Added for hover effect on list items
+  const [viewMode, setViewMode] = useState<"cards" | "list">("cards");
+  const [hoveredAreaId, setHoveredAreaId] = useState<number | null>(null);
 
-  // Dispatch global modal events - assuming this hook is still needed
   useModalEvents(isAreaModalOpen);
-
 
   useEffect(() => {
     const loadAreas = async () => {
-      setLoading(true); // Set loading state
+      setLoading(true); // Set loading state in the store
       try {
         const areasData = await fetchAreas();
-        setAreas(areasData);
+        setAreas(areasData); // Update areas in the store
       } catch (error) {
         console.error('Error fetching areas:', error);
-        setError(true); // Set error state
+        setError(true); // Set error state in the store
       } finally {
-        setLoading(false); // Clear loading state
+        setLoading(false); // Clear loading state in the store
       }
     };
 
     loadAreas();
-  }, [setAreas, setLoading, setError]); // Added dependencies for useEffect
+  }, []); // <--- **CHANGE THIS TO AN EMPTY ARRAY**
+           // Zustand's setters (setAreas, setLoading, setError) are stable and do not need to be dependencies.
+           // This ensures loadAreas() runs only once when the component mounts.
+
 
   const handleSaveArea = async (areaData: Partial<Area>) => {
     setLoading(true);
@@ -65,6 +61,7 @@ const Areas: React.FC = () => {
           description: areaData.description,
         });
       }
+      // Re-fetch all areas to ensure the list is up-to-date after C/U/D
       const updatedAreas = await fetchAreas();
       setAreas(updatedAreas);
     } catch (error) {
@@ -98,6 +95,7 @@ const Areas: React.FC = () => {
     setLoading(true);
     try {
       await deleteArea(areaToDelete.id!);
+      // Re-fetch all areas to ensure the list is up-to-date after C/U/D
       const updatedAreas = await fetchAreas();
       setAreas(updatedAreas);
       setIsConfirmDialogOpen(false);
@@ -120,7 +118,7 @@ const Areas: React.FC = () => {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-100 dark:bg-gray-900">
         <div className="text-xl font-semibold text-gray-700 dark:text-gray-200">
-          Loading areas... {/* Hardcoded string */}
+          Loading areas...
         </div>
       </div>
     );
@@ -131,12 +129,10 @@ const Areas: React.FC = () => {
       <div className="flex items-center justify-center h-screen bg-gray-100 dark:bg-gray-900">
         <div className="text-red-500 text-lg">
           Error loading areas. Please try again.
-        </div>{" "}
-        {/* Hardcoded string */}
+        </div>
       </div>
     );
   }
-
 
   return (
     <div className="flex justify-center px-4 lg:px-2">
@@ -146,7 +142,7 @@ const Areas: React.FC = () => {
           <div className="flex items-center">
             <FolderIcon className="h-6 w-6 mr-2 text-gray-900 dark:text-white" />
             <h2 className="text-2xl font-light text-gray-900 dark:text-white">
-              My Areas {/* Hardcoded string */}
+              My Areas
             </h2>
           </div>
           <button
@@ -154,7 +150,7 @@ const Areas: React.FC = () => {
             className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <PlusCircleIcon className="h-5 w-5 mr-1" />
-            Add New Area {/* Hardcoded string */}
+            Add New Area
           </button>
         </div>
 
@@ -167,7 +163,7 @@ const Areas: React.FC = () => {
                 ? "bg-blue-500 text-white"
                 : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
             }`}
-            aria-label="View as cards" // Hardcoded string
+            aria-label="View as cards"
           >
             <Squares2X2Icon className="h-5 w-5" />
           </button>
@@ -179,7 +175,7 @@ const Areas: React.FC = () => {
                 ? "bg-blue-500 text-white"
                 : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
             }`}
-            aria-label="View as list" // Hardcoded string
+            aria-label="View as list"
           >
             <Bars3Icon className="h-5 w-5" />
           </button>
@@ -189,7 +185,7 @@ const Areas: React.FC = () => {
         {areas.length === 0 ? (
           <p className="text-gray-700 dark:text-gray-300">
             No areas found.
-          </p> /* Hardcoded string */
+          </p>
         ) : (
           <ul
             className={`${
@@ -241,8 +237,8 @@ const Areas: React.FC = () => {
                           : "opacity-0"
                         : "opacity-100"
                     }`}
-                    aria-label={`Edit area ${area.name}`} // Hardcoded string with dynamic name
-                    title={`Edit area ${area.name}`} // Hardcoded string with dynamic name
+                    aria-label={`Edit area ${area.name}`}
+                    title={`Edit area ${area.name}`}
                   >
                     <PencilSquareIcon className="h-5 w-5" />
                   </button>
@@ -255,8 +251,8 @@ const Areas: React.FC = () => {
                           : "opacity-0"
                         : "opacity-100"
                     }`}
-                    aria-label={`Delete area ${area.name}`} // Hardcoded string with dynamic name
-                    title={`Delete area ${area.name}`} // Hardcoded string with dynamic name
+                    aria-label={`Delete area ${area.name}`}
+                    title={`Delete area ${area.name}`}
                   >
                     <TrashIcon className="h-5 w-5" />
                   </button>
@@ -282,8 +278,8 @@ const Areas: React.FC = () => {
         {/* ConfirmDialog */}
         {isConfirmDialogOpen && areaToDelete && (
           <ConfirmDialog
-            title="Confirm Deletion" // Hardcoded string
-            message={`Are you sure you want to delete the area "${areaToDelete.name}"? This action cannot be undone.`} // Hardcoded string with dynamic name
+            title="Confirm Deletion"
+            message={`Are you sure you want to delete the area "${areaToDelete.name}"? This action cannot be undone.`}
             onConfirm={handleDeleteArea}
             onCancel={closeConfirmDialog}
           />

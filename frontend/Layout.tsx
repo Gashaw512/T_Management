@@ -1,6 +1,4 @@
-import React, { useState, useEffect } from "react";
-// Removed i18next import
-// import { useTranslation } from "react-i18next";
+import React, { useState, useEffect, useCallback } from "react"; // <--- Add useCallback
 import { PlusIcon } from '@heroicons/react/24/outline';
 import { useToast } from "./components/Shared/ToastContext";
 import Navbar from "./components/Navbar";
@@ -41,8 +39,6 @@ const Layout: React.FC<LayoutProps> = ({
   toggleDarkMode,
   children,
 }) => {
-  // Removed useTranslation hook call
-  // const { t } = useTranslation();
   const { showSuccessToast } = useToast();
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 1024);
   const [globalModalCount, setGlobalModalCount] = useState(0);
@@ -132,7 +128,8 @@ const Layout: React.FC<LayoutProps> = ({
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const loadNotes = async () => {
+  // Memoize these functions using useCallback
+  const loadNotes = useCallback(async () => {
     setNotesLoading(true);
     try {
       const notesData = await fetchNotes();
@@ -143,9 +140,9 @@ const Layout: React.FC<LayoutProps> = ({
     } finally {
       setNotesLoading(false);
     }
-  };
+  }, [setNotes, setNotesLoading, setNotesError]); // Add Zustand setters as dependencies
 
-  const loadAreas = async () => {
+  const loadAreas = useCallback(async () => {
     setAreasLoading(true);
     try {
       const areasData = await fetchAreas();
@@ -156,9 +153,9 @@ const Layout: React.FC<LayoutProps> = ({
     } finally {
       setAreasLoading(false);
     }
-  };
+  }, [setAreas, setAreasLoading, setAreasError]); // Add Zustand setters as dependencies
 
-  const loadTags = async () => {
+  const loadTags = useCallback(async () => {
     setTagsLoading(true);
     try {
       const tagsData = await fetchTags();
@@ -169,13 +166,14 @@ const Layout: React.FC<LayoutProps> = ({
     } finally {
       setTagsLoading(false);
     }
-  };
+  }, [setTags, setTagsLoading, setTagsError]); // Add Zustand setters as dependencies
 
+  // This useEffect now depends on the memoized functions
   useEffect(() => {
     loadNotes();
     loadAreas();
     loadTags();
-  }, []);
+  }, [loadNotes, loadAreas, loadTags]); // <--- Update dependencies here
 
   const openNoteModal = (note: Note | null = null) => {
     setSelectedNote(note);
@@ -227,11 +225,10 @@ const Layout: React.FC<LayoutProps> = ({
       } else {
         await createNote(noteData);
       }
-      loadNotes();
+      loadNotes(); // This will now call the *memoized* loadNotes
       closeNoteModal();
     } catch (error: any) {
       console.error("Error saving note:", error);
-      // Don't close modal if there's an auth error (user will be redirected)
       if (isAuthError(error)) {
         return;
       }
@@ -258,16 +255,12 @@ const Layout: React.FC<LayoutProps> = ({
         );
         showSuccessToast(taskLink);
       }
-      // Don't refetch all tasks here - let individual components handle their own state
-      // This prevents unnecessary re-renders and race conditions
       closeTaskModal();
     } catch (error: any) {
       console.error("Error saving task:", error);
-      // Don't close modal if there's an auth error (user will be redirected)
       if (isAuthError(error)) {
         return;
       }
-      // For other errors, still close the modal but let the error bubble up
       closeTaskModal();
       throw error;
     }
@@ -293,12 +286,11 @@ const Layout: React.FC<LayoutProps> = ({
       } else {
         await createProject(projectData);
       }
-      const projectsData = await fetchProjects();
+      const projectsData = await fetchProjects(); // Re-fetches projects directly
       setProjects(projectsData);
       closeProjectModal();
     } catch (error: any) {
       console.error("Error saving project:", error);
-      // Don't close modal if there's an auth error (user will be redirected)
       if (isAuthError(error)) {
         return;
       }
@@ -314,11 +306,10 @@ const Layout: React.FC<LayoutProps> = ({
       } else {
         await createArea(areaData);
       }
-      loadAreas();
+      loadAreas(); // This will now call the *memoized* loadAreas
       closeAreaModal();
     } catch (error: any) {
       console.error("Error saving area:", error);
-      // Don't close modal if there's an auth error (user will be redirected)
       if (isAuthError(error)) {
         return;
       }
@@ -333,12 +324,10 @@ const Layout: React.FC<LayoutProps> = ({
       } else {
         await createTag(tagData);
       }
-      const tagsData = await fetchTags();
-      setTags(tagsData);
+      loadTags(); // This will now call the *memoized* loadTags
       closeTagModal();
     } catch (error: any) {
       console.error("Error saving tag:", error);
-      // Don't close modal if there's an auth error (user will be redirected)
       if (isAuthError(error)) {
         return;
       }
@@ -408,7 +397,7 @@ const Layout: React.FC<LayoutProps> = ({
           className={`flex-1 flex items-center justify-center bg-gray-100 dark:bg-gray-800 transition-all duration-300 ease-in-out ${mainContentMarginLeft}`}
         >
           <div className="text-xl text-gray-700 dark:text-gray-200">
-            Loading... {/* Hardcoded string */}
+            Loading...
           </div>
         </div>
       </div>
@@ -444,7 +433,7 @@ const Layout: React.FC<LayoutProps> = ({
         <div
           className={`flex-1 flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-800 transition-all duration-300 ease-in-out ${mainContentMarginLeft}`}
         >
-          <div className="text-xl text-red-500">Something went wrong!</div> {/* Hardcoded string */}
+          <div className="text-xl text-red-500">Something went wrong!</div>
         </div>
       </div>
     );
@@ -492,7 +481,7 @@ const Layout: React.FC<LayoutProps> = ({
           onClick={() => openTaskModal('simplified')}
           className="fixed bottom-6 right-6 bg-blue-500 hover:bg-blue-600 text-white rounded-full p-4 shadow-lg focus:outline-none transform transition-transform duration-200 hover:scale-110 z-50"
           aria-label="Quick Capture"
-          title="Quick Capture" // Hardcoded title
+          title="Quick Capture"
         >
           <PlusIcon className="h-6 w-6" />
         </button>
