@@ -13,7 +13,7 @@ export interface TaskAnalysis {
 
 export const analyzeTaskName = (taskName: string): TaskAnalysis => {
   const trimmedName = taskName.toLowerCase().trim();
-  
+
   // Very short tasks (less than 10 chars) - original logic
   if (trimmedName.length > 0 && trimmedName.length < 10) {
     return {
@@ -23,7 +23,7 @@ export const analyzeTaskName = (taskName: string): TaskAnalysis => {
       severity: 'medium'
     };
   }
-  
+
   // Skip if it's already a next action (contains →)
   if (trimmedName.includes('→')) {
     return {
@@ -32,7 +32,7 @@ export const analyzeTaskName = (taskName: string): TaskAnalysis => {
       severity: 'low'
     };
   }
-  
+
   // More comprehensive action verb patterns
   const actionVerbPatterns = [
     // Direct action verbs at start
@@ -52,20 +52,19 @@ export const analyzeTaskName = (taskName: string): TaskAnalysis => {
     /^(install|download|set up|configure)/,
     /^(test|try|experiment|validate)/,
     /^(backup|save|export|archive)/,
-    /^(delete|remove|uninstall|cancel)/,
-    
+
     // Gerund forms (-ing verbs) which are often good actions
     /^(calling|emailing|writing|reading|buying|scheduling|meeting|sending|updating|finishing|submitting|organizing|researching|preparing|installing|testing|backing)/,
-    
+
     // Question patterns (usually clear next actions)
     /^(what|how|when|where|why|which)/,
     /\?$/,
-    
+
     // Imperative patterns with objects
     /^(add|remove|insert|attach|include|exclude)/,
     /^(start|begin|initiate|launch|kick off)/,
     /^(stop|end|terminate|close|shut)/,
-    
+
     // Common task patterns
     /^(follow up|followup)/,
     /^(sign up|signup)/,
@@ -76,7 +75,7 @@ export const analyzeTaskName = (taskName: string): TaskAnalysis => {
     /^(clean up|cleanup)/,
     /^(wrap up|wrapup)/
   ];
-  
+
   // Check if task starts with any action verb pattern
   const hasActionVerb = actionVerbPatterns.some(pattern => pattern.test(trimmedName));
   if (hasActionVerb) {
@@ -86,7 +85,7 @@ export const analyzeTaskName = (taskName: string): TaskAnalysis => {
       severity: 'low'
     };
   }
-  
+
   // Check for common non-actionable patterns (these are vague)
   const vaguePatterns = [
     // Single words without context
@@ -98,10 +97,10 @@ export const analyzeTaskName = (taskName: string): TaskAnalysis => {
     // Very short tasks without clear action (less than 3 words)
     /^(\w+\s+\w+|^\w+)$/
   ];
-  
+
   // Only flag as vague if it matches vague patterns AND is not clearly actionable
   const matchesVaguePattern = vaguePatterns.some(pattern => pattern.test(trimmedName));
-  
+
   // Additional checks for good tasks that shouldn't be flagged
   const hasGoodStructure = (
     trimmedName.length > 15 || // Longer tasks are usually more specific
@@ -110,7 +109,7 @@ export const analyzeTaskName = (taskName: string): TaskAnalysis => {
     /\b(tomorrow|today|monday|tuesday|wednesday|thursday|friday|saturday|sunday|next week|this week)\b/.test(trimmedName) || // Time references
     /\b(project|meeting|appointment|deadline|due|urgent|important)\b/.test(trimmedName) // Context indicators
   );
-  
+
   if (matchesVaguePattern && !hasGoodStructure) {
     return {
       isVague: true,
@@ -119,7 +118,7 @@ export const analyzeTaskName = (taskName: string): TaskAnalysis => {
       severity: 'high'
     };
   }
-  
+
   // Check for missing action verbs (less strict)
   if (!hasActionVerb && trimmedName.split(' ').length <= 2) {
     return {
@@ -129,7 +128,7 @@ export const analyzeTaskName = (taskName: string): TaskAnalysis => {
       severity: 'medium'
     };
   }
-  
+
   return {
     isVague: false,
     reason: 'good',
@@ -141,9 +140,15 @@ export const analyzeTaskName = (taskName: string): TaskAnalysis => {
  * Filters tasks to find vague ones using the enhanced logic
  */
 export const getVagueTasks = (tasks: Task[]): Task[] => {
+  // Defensive check: Ensure tasks is an array before attempting to filter
+  if (!tasks || !Array.isArray(tasks)) {
+    console.warn("getVagueTasks received invalid input. Expected an array of tasks, but got:", tasks);
+    return []; // Return an empty array to prevent the TypeError
+  }
+
   return tasks.filter(task => {
     if (task.status === 'done' || task.status === 'archived') return false;
-    
+
     const analysis = analyzeTaskName(task.name);
     return analysis.isVague;
   });

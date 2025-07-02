@@ -1,380 +1,146 @@
-import React, { useState, useEffect } from 'react';
-// Removed useTranslation import
-// import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
-import {
-  AcademicCapIcon,
-  ExclamationTriangleIcon,
-  ClockIcon,
-  FolderIcon,
-  ChevronDownIcon,
-  ChevronRightIcon
-} from '@heroicons/react/24/outline';
-import { Task } from '../../entities/Task';
-import { Project } from '../../entities/Project';
-import TaskModal from '../Task/TaskModal';
-import { fetchTaskById, updateTask, deleteTask } from '../../utils/tasksService';
-import { fetchProjects, createProject } from '../../utils/projectsService';
-import { useToast } from '../Shared/ToastContext';
-import { getVagueTasks } from '../../utils/taskIntelligenceService';
+// frontend/components/Profile/ProfileSettings.tsx
 
-interface ProductivityInsight {
-  type: 'stalled_projects' | 'completed_no_next' | 'tasks_are_projects' | 'vague_tasks' | 'overdue_tasks' | 'stuck_projects';
-  title: string;
-  description: string;
-  items: (Task | Project)[];
-  icon: React.ComponentType<any>;
-  color: string;
+import React, { useState, useEffect, Suspense, lazy } from 'react';
+import { User } from '../../entities/User';
+import { Task } from '../../entities/Task'; // Assuming Task interface is defined
+import { Project } from '../../entities/Project'; // Assuming Project interface is defined
+import { fetchTasks } from '../../utils/tasksService'; // Assuming you have a service for tasks
+import { fetchProjects } from '../../utils/projectsService'; // Assuming you have a service for projects
+import { useToast } from '../Shared/ToastContext'; // Assuming useToast is correctly set up
+
+// Lazily load ProductivityAssistant for performance benefits
+const ProductivityAssistant = lazy(() => import('../Productivity/ProductivityAssistant'));
+
+
+interface ProfileSettingsProps {
+  currentUser: User | null;
+  isDarkMode: boolean;
+  toggleDarkMode: () => void;
 }
 
-interface ProductivityAssistantProps {
-  tasks: Task[];
-  projects: Project[];
-}
+const ProfileSettings: React.FC<ProfileSettingsProps> = ({ currentUser, isDarkMode, toggleDarkMode }) => {
+  const { showErrorToast } = useToast();
 
-const ProductivityAssistant: React.FC<ProductivityAssistantProps> = ({ tasks, projects }) => {
-  // Removed useTranslation hook call
-  // const { t } = useTranslation();
-  const navigate = useNavigate();
-  const { showSuccessToast, showErrorToast } = useToast();
+  // State for tasks and projects data
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [dataError, setDataError] = useState<string | null>(null);
 
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [insights, setInsights] = useState<ProductivityInsight[]>([]);
-  const [expandedInsights, setExpandedInsights] = useState<Set<number>>(new Set());
-
-  // Modal states
-  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [allProjects, setAllProjects] = useState<Project[]>(projects);
-  const [loading, setLoading] = useState(false);
-
-  const PROJECT_VERBS = ['plan', 'organize', 'set up', 'setup', 'fix', 'review', 'implement', 'create', 'build', 'develop'];
-  const OVERDUE_THRESHOLD_DAYS = 30;
-
+  // --- Data Fetching Effect ---
   useEffect(() => {
-    const generateInsights = () => {
-      const newInsights: ProductivityInsight[] = [];
+    const loadUserData = async () => {
+      setIsLoadingData(true);
+      setDataError(null); // Clear previous errors
 
-      // Filter to only include non-completed tasks
-      const activeTasks = tasks.filter(task => task.status !== 'done' && task.status !== 'archived');
-
-      // 1. Stalled Projects (no tasks/actions)
-      const stalledProjects = projects.filter(project =>
-        project.active && !activeTasks.some(task => task.project_id === project.id)
-      );
-
-      if (stalledProjects.length > 0) {
-        newInsights.push({
-          type: 'stalled_projects',
-          title: 'Stalled Projects', // Hardcoded string
-          description: 'These projects have no tasks or actions', // Hardcoded string
-          items: stalledProjects,
-          icon: FolderIcon,
-          color: 'text-red-500'
-        });
-      }
-
-      // 2. Projects with completed tasks but no next action
-      const projectsNeedingNextAction = projects.filter(project => {
-        const projectTasks = tasks.filter(task => task.project_id === project.id);
-        const hasCompletedTasks = projectTasks.some(task => task.status === 'done' || task.status === 'archived');
-        const hasNextAction = activeTasks.some(task =>
-          task.project_id === project.id && (task.status === 'not_started' || task.status === 'in_progress')
-        );
-        return project.active && hasCompletedTasks && !hasNextAction;
-      });
-
-      if (projectsNeedingNextAction.length > 0) {
-        newInsights.push({
-          type: 'completed_no_next',
-          title: 'Projects Need Next Action', // Hardcoded string
-          description: 'These projects have completed tasks but no next action', // Hardcoded string
-          items: projectsNeedingNextAction,
-          icon: ExclamationTriangleIcon,
-          color: 'text-yellow-500'
-        });
-      }
-
-      // 3. Tasks that are actually projects
-      const tasksAreProjects = activeTasks.filter(task => {
-        const taskName = task.name.toLowerCase();
-        return PROJECT_VERBS.some(verb => taskName.includes(verb)) &&
-               taskName.length > 30; // Longer tasks are more likely to be projects
-      });
-
-      if (tasksAreProjects.length > 0) {
-        newInsights.push({
-          type: 'tasks_are_projects',
-          title: 'Tasks That Look Like Projects', // Hardcoded string
-          description: 'These tasks might need to be broken down', // Hardcoded string
-          items: tasksAreProjects,
-          icon: AcademicCapIcon,
-          color: 'text-blue-500'
-        });
-      }
-
-      // 4. Tasks without clear verbs
-      const vagueTasks = getVagueTasks(activeTasks);
-
-      if (vagueTasks.length > 0) {
-        newInsights.push({
-          type: 'vague_tasks',
-          title: 'Tasks Without Clear Action', // Hardcoded string
-          description: 'These tasks need clearer action verbs', // Hardcoded string
-          items: vagueTasks,
-          icon: ExclamationTriangleIcon,
-          color: 'text-orange-500'
-        });
-      }
-
-      // 5. Overdue or stale tasks
-      const now = new Date();
-      const thresholdDate = new Date(now.getTime() - (OVERDUE_THRESHOLD_DAYS * 24 * 60 * 60 * 1000));
-
-      const staleTasks = activeTasks.filter(task => {
-        // Only use created_at since updated_at doesn't exist in the interface
-        const taskDate = task.created_at ? new Date(task.created_at) : null;
-
-        return taskDate && taskDate < thresholdDate;
-      });
-
-      if (staleTasks.length > 0) {
-        newInsights.push({
-          type: 'overdue_tasks',
-          title: 'Stale Tasks', // Hardcoded string
-          description: `Tasks not updated in ${OVERDUE_THRESHOLD_DAYS} days`, // Hardcoded string
-          items: staleTasks,
-          icon: ClockIcon,
-          color: 'text-gray-500'
-        });
-      }
-
-      // 6. Stuck projects (not updated in a month)
-      const stuckProjects = projects.filter(project => {
-        if (!project.active) return false;
-
-        // Projects don't have date fields in the interface, so we'll check if they have recent tasks
-        const projectTasks = activeTasks.filter(task => task.project_id === project.id);
-
-        if (projectTasks.length === 0) return false; // Empty projects are handled by "stalled projects"
-
-        // Find the most recent task date for this project
-        const mostRecentTaskDate = projectTasks.reduce((latest, task) => {
-          const taskDate = task.created_at ? new Date(task.created_at) : null;
-          if (!taskDate) return latest;
-          return !latest || taskDate > latest ? taskDate : latest;
-        }, null as Date | null);
-
-        return mostRecentTaskDate && mostRecentTaskDate < thresholdDate;
-      });
-
-      if (stuckProjects.length > 0) {
-        newInsights.push({
-          type: 'stuck_projects',
-          title: 'Stuck Projects', // Hardcoded string
-          description: 'Projects not updated recently', // Hardcoded string
-          items: stuckProjects,
-          icon: FolderIcon,
-          color: 'text-purple-500'
-        });
-      }
-
-      setInsights(newInsights);
-    };
-
-    generateInsights();
-  }, [tasks, projects]); // Removed 't' from dependency array
-
-  const totalIssues = insights.reduce((sum, insight) => sum + insight.items.length, 0);
-
-  const toggleInsightExpansion = (index: number) => {
-    const newExpanded = new Set(expandedInsights);
-    if (newExpanded.has(index)) {
-      newExpanded.delete(index);
-    } else {
-      newExpanded.add(index);
-    }
-    setExpandedInsights(newExpanded);
-  };
-
-  const handleItemClick = async (item: Task | Project) => {
-    const isTask = 'status' in item;
-
-    if (isTask) {
-      // Handle task click - open task modal
       try {
-        setLoading(true);
-        const fullTask = await fetchTaskById(item.id!);
-        setSelectedTask(fullTask);
-        setIsTaskModalOpen(true);
+        // Fetch tasks
+        const fetchedTasks = await fetchTasks();
+        setTasks(Array.isArray(fetchedTasks) ? fetchedTasks : []); // Defensive check
+
+        // Fetch projects
+        const fetchedProjects = await fetchProjects();
+        setProjects(Array.isArray(fetchedProjects) ? fetchedProjects : []); // Defensive check
+
       } catch (error) {
-        console.error('Failed to fetch task:', error);
-        showErrorToast('Failed to load task.'); // Hardcoded string
+        console.error('Failed to load productivity data:', error);
+        setDataError('Failed to load your tasks and projects. Please try again.');
+        showErrorToast('Failed to load productivity data.');
       } finally {
-        setLoading(false);
-      }
-    } else {
-      // Handle project click - navigate to project page
-      navigate(`/project/${item.id}`);
-    }
-  };
-
-  const handleTaskSave = async (updatedTask: Task) => {
-    try {
-      if (updatedTask.id) {
-        await updateTask(updatedTask.id, updatedTask);
-        setIsTaskModalOpen(false);
-        setSelectedTask(null);
-        showSuccessToast('Task updated successfully!'); // Hardcoded string
-        // Optionally refresh the parent component data
-      }
-    } catch (error) {
-      console.error('Failed to update task:', error);
-      showErrorToast('Failed to update task.'); // Hardcoded string
-    }
-  };
-
-  const handleTaskDelete = async () => {
-    try {
-      if (selectedTask?.id) {
-        await deleteTask(selectedTask.id);
-        setIsTaskModalOpen(false);
-        setSelectedTask(null);
-        showSuccessToast('Task deleted successfully!'); // Hardcoded string
-        // Optionally refresh the parent component data
-      }
-    } catch (error) {
-      console.error('Failed to delete task:', error);
-      showErrorToast('Failed to delete task.'); // Hardcoded string
-    }
-  };
-
-  const handleCreateProject = async (name: string): Promise<Project> => {
-    try {
-      const project = await createProject({ name, active: true });
-      setAllProjects(prev => [...prev, project]);
-      return project;
-    } catch (error) {
-      console.error('Failed to create project:', error);
-      throw error;
-    }
-  };
-
-  // Load projects when component mounts
-  useEffect(() => {
-    const loadProjects = async () => {
-      try {
-        const projectsData = await fetchProjects();
-        setAllProjects(Array.isArray(projectsData) ? projectsData : []);
-      } catch (error) {
-        console.error('Failed to load projects:', error);
+        setIsLoadingData(false);
       }
     };
 
-    if (projects.length === 0) {
-      loadProjects();
+    if (currentUser) { // Only fetch data if a user is logged in
+      loadUserData();
     } else {
-      setAllProjects(projects);
+      // If no current user, clear data and stop loading
+      setTasks([]);
+      setProjects([]);
+      setIsLoadingData(false);
+      setDataError(null); // No error if no user is expected to have data
     }
-  }, [projects]);
 
-  if (totalIssues === 0) {
-    return null;
-  }
+  }, [currentUser, showErrorToast]); // Re-run if currentUser changes or toast context changes
 
+  // --- Render Method ---
   return (
-    <div className="mb-2 p-4 bg-white dark:bg-gray-900 border-l-4 border-yellow-500 rounded-lg shadow">
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="flex items-center w-full"
-      >
-        <ExclamationTriangleIcon className="h-6 w-6 text-yellow-500 dark:text-yellow-400 mr-3" />
-        <div className="flex-1 text-left">
-          <p className="text-gray-700 dark:text-gray-300 font-medium">
-            Found {totalIssues} productivity issue(s) that need attention {/* Hardcoded string */}
-          </p>
-          <p className="text-yellow-600 dark:text-yellow-400 text-sm">
-            Click to review and improve your workflow {/* Hardcoded string */}
-          </p>
-        </div>
-        {isExpanded ? (
-          <ChevronDownIcon className="h-5 w-5 text-yellow-500" />
-        ) : (
-          <ChevronRightIcon className="h-5 w-5 text-yellow-500" />
-        )}
-      </button>
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 p-8">
+      <h1 className="text-3xl font-bold mb-6 border-b pb-4 border-gray-200 dark:border-gray-700">
+        Profile Settings
+      </h1>
 
-      {isExpanded && (
-        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-          <div className="space-y-4">
-            {insights.map((insight, index) => (
-              <div key={index} className="border-l-4 border-gray-200 dark:border-gray-600 pl-4">
-                <div className="flex items-start space-x-3">
-                  <insight.icon className={`h-5 w-5 mt-0.5 ${insight.color}`} />
-                  <div className="flex-1">
-                    <h4 className="font-medium text-gray-900 dark:text-gray-100">
-                      {insight.title} ({insight.items.length})
-                    </h4>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                      {insight.description}
-                    </p>
-                    <div className="space-y-1">
-                      {(expandedInsights.has(index) ? insight.items : insight.items.slice(0, 3)).map((item, itemIndex) => {
-                        return (
-                          <div key={itemIndex} className="text-sm">
-                            <button
-                              onClick={() => handleItemClick(item)}
-                              className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline text-left"
-                              disabled={loading}
-                            >
-                              • {item.name}
-                            </button>
-                          </div>
-                        );
-                      })}
-                      {insight.items.length > 3 && (
-                        <button
-                          onClick={() => toggleInsightExpansion(index)}
-                          className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 underline cursor-pointer"
-                        >
-                          {expandedInsights.has(index)
-                            ? '... show less'
-                            : `... and ${insight.items.length - 3} more items`
-                          }
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              Click on any item above to open it and make improvements. {/* Hardcoded string */}
+      {/* User Information Section */}
+      <section className="mb-8 p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md">
+        <h2 className="text-2xl font-semibold mb-4 text-gray-800 dark:text-gray-200">Account Details</h2>
+        {currentUser ? (
+          <div className="space-y-3">
+            <p className="text-lg">
+              <strong className="font-medium">Username:</strong> {currentUser.username}
             </p>
+            <p className="text-lg">
+              <strong className="font-medium">Email:</strong> {currentUser.email}
+            </p>
+            {/* Add more user details as needed, e.g., created_at, last_login */}
+            {currentUser.created_at && (
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Member since: {new Date(currentUser.created_at).toLocaleDateString()}
+              </p>
+            )}
           </div>
-        </div>
-      )}
+        ) : (
+          <p className="text-red-600 dark:text-red-400 font-medium">
+            You are not logged in. Please log in to view your profile details.
+          </p>
+        )}
+      </section>
 
-      {/* Task Modal */}
-      {selectedTask && (
-        <TaskModal
-          isOpen={isTaskModalOpen}
-          onClose={() => {
-            setIsTaskModalOpen(false);
-            setSelectedTask(null);
-          }}
-          task={selectedTask}
-          onSave={handleTaskSave}
-          onDelete={handleTaskDelete}
-          projects={allProjects}
-          onCreateProject={handleCreateProject}
-        />
-      )}
+      {/* Application Settings Section (Dark Mode) */}
+      <section className="mb-8 p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md">
+        <h2 className="text-2xl font-semibold mb-4 text-gray-800 dark:text-gray-200">App Preferences</h2>
+        <div className="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-700 last:border-b-0">
+          <span className="text-lg font-medium text-gray-700 dark:text-gray-300">Dark Mode</span>
+          <button
+            onClick={toggleDarkMode}
+            className="px-5 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
+            aria-label={isDarkMode ? 'Disable Dark Mode' : 'Enable Dark Mode'}
+          >
+            {isDarkMode ? 'Disable' : 'Enable'}
+          </button>
+        </div>
+        {/* Add more app-level settings here, e.g., notifications, language (if i18n is re-added) */}
+      </section>
+
+      {/* Productivity Insights Section */}
+      <section className="p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md">
+        <h2 className="text-2xl font-semibold mb-4 text-gray-800 dark:text-gray-200">Productivity Insights</h2>
+        {isLoadingData ? (
+          <div className="flex justify-center items-center h-24">
+            <p className="text-gray-600 dark:text-gray-400">Loading insights...</p>
+          </div>
+        ) : dataError ? (
+          <div className="text-red-600 dark:text-red-400 text-center p-4 border border-red-300 dark:border-red-700 rounded-md">
+            <p className="font-medium">Error loading data:</p>
+            <p>{dataError}</p>
+          </div>
+        ) : (
+          // Use Suspense to handle lazy loading of ProductivityAssistant
+          <Suspense fallback={
+            <div className="flex justify-center items-center h-24">
+              <p className="text-gray-600 dark:text-gray-400">Loading Productivity Assistant...</p>
+            </div>
+          }>
+            <ProductivityAssistant tasks={tasks} projects={projects} />
+          </Suspense>
+        )}
+        {!currentUser && !isLoadingData && !dataError && (
+          <p className="text-gray-500 dark:text-gray-400 text-center mt-4">
+            Log in to see your personalized productivity insights.
+          </p>
+        )}
+      </section>
     </div>
   );
 };
 
-export default ProductivityAssistant;
+export default ProfileSettings;
