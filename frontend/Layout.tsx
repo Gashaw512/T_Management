@@ -24,7 +24,7 @@ import { fetchAreas, createArea, updateArea } from "./utils/areasService";
 import { fetchTags, createTag, updateTag } from "./utils/tagsService";
 import { fetchProjects, createProject, updateProject } from "./utils/projectsService";
 import { createTask, updateTask } from "./utils/tasksService";
-import { isAuthError } from "./utils/authUtils";
+import { isAuthError } from "./utils/http";
 
 interface LayoutProps {
   currentUser: User;

@@ -19,7 +19,7 @@ import { PriorityType, Task } from "../../entities/Task";
 import { fetchProjectById, updateProject, deleteProject } from "../../utils/projectsService";
 import { createTask, updateTask, deleteTask, toggleTaskToday } from "../../utils/tasksService";
 import { fetchAreas } from "../../utils/areasService";
-import { isAuthError } from "../../utils/authUtils";
+import { isAuthError } from "../../utils/http";
 import { CalendarDaysIcon, InformationCircleIcon } from "@heroicons/react/24/solid";
 import { getAutoSuggestNextActionsEnabled } from "../../utils/profileService";
 import AutoSuggestNextActionBox from "./AutoSuggestNextActionBox";
