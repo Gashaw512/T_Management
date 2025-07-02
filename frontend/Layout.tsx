@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react"; // <--- Add useCallback
+import React, { useState, useEffect, useCallback } from "react";
 import { PlusIcon } from '@heroicons/react/24/outline';
 import { useToast } from "./components/Shared/ToastContext";
 import Navbar from "./components/Navbar";
@@ -42,17 +42,20 @@ const Layout: React.FC<LayoutProps> = ({
   const { showSuccessToast } = useToast();
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 1024);
   const [globalModalCount, setGlobalModalCount] = useState(0);
+
+  // Modal open/close states
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
   const [isAreaModalOpen, setIsAreaModalOpen] = useState(false);
   const [isTagModalOpen, setIsTagModalOpen] = useState(false);
-  const [taskModalType, setTaskModalType] = useState<'simplified' | 'full'>('simplified');
 
+  // Modal specific data
+  const [taskModalType, setTaskModalType] = useState<'simplified' | 'full'>('simplified');
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [selectedArea, setSelectedArea] = useState<Area | null>(null);
   const [selectedTag, setSelectedTag] = useState<Tag | null>(null);
-  const [newTask, setNewTask] = useState<Task | null>(null);
+  const [newTask, setNewTask] = useState<Task | null>(null); // This seems unused if you're passing a task prop to TaskModal. Consider if it's still needed.
 
   const {
     notesStore: {
@@ -72,7 +75,7 @@ const Layout: React.FC<LayoutProps> = ({
       isError: isAreasError,
     },
     tasksStore: {
-      setLoading: setTasksLoading,
+      setLoading: setTasksLoading, // You might need tasks, setTasks if you're not always re-fetching
       setError: setTasksError,
       isLoading: isTasksLoading,
       isError: isTasksError,
@@ -95,12 +98,9 @@ const Layout: React.FC<LayoutProps> = ({
     },
   } = useStore();
 
-  const openTaskModal = (type: 'simplified' | 'full' = 'simplified') => {
-    setIsTaskModalOpen(true);
-    setTaskModalType(type);
-  };
-
-  // Listen for global modal events from child components
+  // --- Global Modal Event Listener ---
+  // This listener allows child components to dispatch 'modalOpen'/'modalClose' events
+  // to help Layout keep track of how many modals are open, useful for floating button logic.
   useEffect(() => {
     const handleModalOpen = () => {
       setGlobalModalCount(prev => prev + 1);
@@ -117,9 +117,9 @@ const Layout: React.FC<LayoutProps> = ({
       window.removeEventListener('modalOpen', handleModalOpen);
       window.removeEventListener('modalClose', handleModalClose);
     };
-  }, []);
+  }, []); // Empty dependency array means this effect runs once on mount and cleans up on unmount.
 
-
+  // --- Sidebar Open/Close on Resize ---
   useEffect(() => {
     const handleResize = () => {
       setIsSidebarOpen(window.innerWidth >= 1024);
@@ -128,7 +128,8 @@ const Layout: React.FC<LayoutProps> = ({
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Memoize these functions using useCallback
+  // --- Memoized Data Loading Functions (Crucial for initial fetches) ---
+  // Zustand setters are stable, so they are safe dependencies.
   const loadNotes = useCallback(async () => {
     setNotesLoading(true);
     try {
@@ -140,7 +141,7 @@ const Layout: React.FC<LayoutProps> = ({
     } finally {
       setNotesLoading(false);
     }
-  }, [setNotes, setNotesLoading, setNotesError]); // Add Zustand setters as dependencies
+  }, [setNotes, setNotesLoading, setNotesError]);
 
   const loadAreas = useCallback(async () => {
     setAreasLoading(true);
@@ -153,7 +154,7 @@ const Layout: React.FC<LayoutProps> = ({
     } finally {
       setAreasLoading(false);
     }
-  }, [setAreas, setAreasLoading, setAreasError]); // Add Zustand setters as dependencies
+  }, [setAreas, setAreasLoading, setAreasError]);
 
   const loadTags = useCallback(async () => {
     setTagsLoading(true);
@@ -166,77 +167,92 @@ const Layout: React.FC<LayoutProps> = ({
     } finally {
       setTagsLoading(false);
     }
-  }, [setTags, setTagsLoading, setTagsError]); // Add Zustand setters as dependencies
+  }, [setTags, setTagsLoading, setTagsError]);
 
-  // This useEffect now depends on the memoized functions
+  // Initial Data Load on Mount
   useEffect(() => {
     loadNotes();
     loadAreas();
     loadTags();
-  }, [loadNotes, loadAreas, loadTags]); // <--- Update dependencies here
+  }, [loadNotes, loadAreas, loadTags]); // Dependencies are the memoized loading functions.
 
-  const openNoteModal = (note: Note | null = null) => {
+  // --- Memoized Modal Control Functions ---
+  // These functions manage the local state for modal visibility and selected items.
+  // They are memoized because they are passed down as props to Sidebar.
+  const memoizedOpenTaskModal = useCallback((type: 'simplified' | 'full' = 'simplified') => {
+    setIsTaskModalOpen(true);
+    setTaskModalType(type);
+  }, []); // Dependencies: setIsTaskModalOpen, setTaskModalType (assuming they are stable, which state setters are)
+
+  const memoizedCloseTaskModal = useCallback(() => {
+    setIsTaskModalOpen(false);
+    setNewTask(null); // Reset new task state on close
+  }, []); // Dependencies: setIsTaskModalOpen, setNewTask
+
+  const memoizedOpenProjectModal = useCallback(() => {
+    setIsProjectModalOpen(true);
+  }, []); // Dependencies: setIsProjectModalOpen
+
+  const memoizedCloseProjectModal = useCallback(() => {
+    setIsProjectModalOpen(false);
+  }, []); // Dependencies: setIsProjectModalOpen
+
+  const memoizedOpenNoteModal = useCallback((note: Note | null = null) => {
     setSelectedNote(note);
     setIsNoteModalOpen(true);
-  };
+  }, []); // Dependencies: setSelectedNote, setIsNoteModalOpen
 
-  const closeNoteModal = () => {
+  const memoizedCloseNoteModal = useCallback(() => {
     setIsNoteModalOpen(false);
     setSelectedNote(null);
-  };
+  }, []); // Dependencies: setIsNoteModalOpen, setSelectedNote
 
-  const closeTaskModal = () => {
-    setIsTaskModalOpen(false);
-    setNewTask(null);
-  };
-
-  const openProjectModal = () => {
-    setIsProjectModalOpen(true);
-  };
-
-  const closeProjectModal = () => {
-    setIsProjectModalOpen(false);
-  };
-
-  const openAreaModal = (area: Area | null = null) => {
+  const memoizedOpenAreaModal = useCallback((area: Area | null = null) => {
     setSelectedArea(area);
     setIsAreaModalOpen(true);
-  };
+  }, []); // Dependencies: setSelectedArea, setIsAreaModalOpen
 
-  const closeAreaModal = () => {
+  const memoizedCloseAreaModal = useCallback(() => {
     setIsAreaModalOpen(false);
     setSelectedArea(null);
-  };
+  }, []); // Dependencies: setIsAreaModalOpen, setSelectedArea
 
-  const openTagModal = (tag: Tag | null = null) => {
+  const memoizedOpenTagModal = useCallback((tag: Tag | null = null) => {
     setSelectedTag(tag);
     setIsTagModalOpen(true);
-  };
+  }, []); // Dependencies: setSelectedTag, setIsTagModalOpen
 
-  const closeTagModal = () => {
+  const memoizedCloseTagModal = useCallback(() => {
     setIsTagModalOpen(false);
     setSelectedTag(null);
-  };
+  }, []); // Dependencies: setIsTagModalOpen, setSelectedTag
 
-  const handleSaveNote = async (noteData: Note) => {
+  // --- Memoized Data Manipulation Functions (CRUD operations) ---
+  // These functions typically trigger a re-fetch of data after successful operations.
+  // Memoize them if they are passed as props to child components (e.g., modals).
+
+  const handleSaveNote = useCallback(async (noteData: Note) => {
     try {
       if (noteData.id) {
         await updateNote(noteData.id, noteData);
       } else {
         await createNote(noteData);
       }
-      loadNotes(); // This will now call the *memoized* loadNotes
-      closeNoteModal();
+      loadNotes(); // Call the memoized loadNotes
+      memoizedCloseNoteModal();
     } catch (error: any) {
       console.error("Error saving note:", error);
       if (isAuthError(error)) {
+        // Handle auth error (e.g., redirect to login)
+        setCurrentUser(null); // Assuming this is part of your auth error handling
         return;
       }
-      closeNoteModal();
+      memoizedCloseNoteModal(); // Close even on non-auth error
+      // Potentially show an error toast here
     }
-  };
+  }, [loadNotes, memoizedCloseNoteModal, setCurrentUser]); // Add setCurrentUser as dependency
 
-  const handleSaveTask = async (taskData: Task) => {
+  const handleSaveTask = useCallback(async (taskData: Task) => {
     try {
       if (taskData.id) {
         await updateTask(taskData.id, taskData);
@@ -255,18 +271,21 @@ const Layout: React.FC<LayoutProps> = ({
         );
         showSuccessToast(taskLink);
       }
-      closeTaskModal();
+      // You might want to refresh tasks here if you have a tasksStore and loadTasks function
+      // loadTasks();
+      memoizedCloseTaskModal();
     } catch (error: any) {
       console.error("Error saving task:", error);
       if (isAuthError(error)) {
+        setCurrentUser(null);
         return;
       }
-      closeTaskModal();
-      throw error;
+      memoizedCloseTaskModal();
+      throw error; // Re-throw to propagate if needed by modal
     }
-  };
+  }, [memoizedCloseTaskModal, showSuccessToast, setCurrentUser]);
 
-  const handleCreateProject = async (name: string): Promise<Project> => {
+  const handleCreateProject = useCallback(async (name: string): Promise<Project> => {
     try {
       const newProject = await createProject({
         name,
@@ -275,67 +294,71 @@ const Layout: React.FC<LayoutProps> = ({
       return newProject;
     } catch (error) {
       console.error("Error creating project:", error);
-      throw error;
+      throw error; // Re-throw so modal can handle
     }
-  };
+  }, []);
 
-  const handleSaveProject = async (projectData: Project) => {
+  const handleSaveProject = useCallback(async (projectData: Project) => {
     try {
       if (projectData.id) {
         await updateProject(projectData.id, projectData);
       } else {
         await createProject(projectData);
       }
-      const projectsData = await fetchProjects(); // Re-fetches projects directly
-      setProjects(projectsData);
-      closeProjectModal();
+      // You don't have a memoized loadProjects, so re-fetching directly
+      const projectsData = await fetchProjects();
+      setProjects(projectsData); // Update Zustand store
+      memoizedCloseProjectModal();
     } catch (error: any) {
       console.error("Error saving project:", error);
       if (isAuthError(error)) {
+        setCurrentUser(null);
         return;
       }
-      closeProjectModal();
+      memoizedCloseProjectModal();
     }
-  };
+  }, [setProjects, memoizedCloseProjectModal, setCurrentUser]);
 
 
-  const handleSaveArea = async (areaData: Partial<Area>) => {
+  const handleSaveArea = useCallback(async (areaData: Partial<Area>) => {
     try {
       if (areaData.id) {
         await updateArea(areaData.id, areaData);
       } else {
         await createArea(areaData);
       }
-      loadAreas(); // This will now call the *memoized* loadAreas
-      closeAreaModal();
+      loadAreas(); // Call the memoized loadAreas
+      memoizedCloseAreaModal();
     } catch (error: any) {
       console.error("Error saving area:", error);
       if (isAuthError(error)) {
+        setCurrentUser(null);
         return;
       }
-      closeAreaModal();
+      memoizedCloseAreaModal();
     }
-  };
+  }, [loadAreas, memoizedCloseAreaModal, setCurrentUser]);
 
-  const handleSaveTag = async (tagData: Tag) => {
+  const handleSaveTag = useCallback(async (tagData: Tag) => {
     try {
       if (tagData.id) {
         await updateTag(tagData.id, tagData);
       } else {
         await createTag(tagData);
       }
-      loadTags(); // This will now call the *memoized* loadTags
-      closeTagModal();
+      loadTags(); // Call the memoized loadTags
+      memoizedCloseTagModal();
     } catch (error: any) {
       console.error("Error saving tag:", error);
       if (isAuthError(error)) {
+        setCurrentUser(null);
         return;
       }
-      closeTagModal();
+      memoizedCloseTagModal();
     }
-  };
+  }, [loadTags, memoizedCloseTagModal, setCurrentUser]);
 
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     try {
       const response = await fetch('/api/logout', {
         method: 'GET',
@@ -350,14 +373,15 @@ const Layout: React.FC<LayoutProps> = ({
     } catch (error) {
       console.error('Error during logout:', error);
     }
-  };
+  }, [setCurrentUser]); // setCurrentUser is a prop, so include it if it's not stable. React's useState setters are stable.
 
+  // --- Computed States for UI ---
   const mainContentMarginLeft = isSidebarOpen ? "ml-72" : "ml-0";
 
   const isLoading =
     isNotesLoading ||
     isAreasLoading ||
-    isTasksLoading ||
+    isTasksLoading || // If tasks are not loaded in Layout's useEffect, this might be perpetually true. Consider how tasks are managed.
     isProjectsLoading ||
     isTagsLoading;
   const isError =
@@ -367,9 +391,12 @@ const Layout: React.FC<LayoutProps> = ({
     isProjectsError ||
     isTagsError;
 
+  // --- Conditional Rendering for Loading/Error States ---
+  // It's generally better to wrap the entire application in a single div
+  // for consistent styling and to avoid remounts of Navbar/Sidebar.
   if (isLoading) {
     return (
-      <div className={`min-h-screen ${isDarkMode ? "dark" : ""}`}>
+      <div className={`min-h-screen flex flex-col ${isDarkMode ? "dark" : ""}`}>
         <Navbar
           isDarkMode={isDarkMode}
           toggleDarkMode={toggleDarkMode}
@@ -377,6 +404,7 @@ const Layout: React.FC<LayoutProps> = ({
           setCurrentUser={setCurrentUser}
           isSidebarOpen={isSidebarOpen}
           setIsSidebarOpen={setIsSidebarOpen}
+          handleLogout={handleLogout} // Pass memoized logout
         />
         <Sidebar
           isSidebarOpen={isSidebarOpen}
@@ -384,20 +412,21 @@ const Layout: React.FC<LayoutProps> = ({
           currentUser={currentUser}
           isDarkMode={isDarkMode}
           toggleDarkMode={toggleDarkMode}
-          openTaskModal={openTaskModal}
-          openProjectModal={openProjectModal}
-          openNoteModal={openNoteModal}
-          openAreaModal={openAreaModal}
-          openTagModal={openTagModal}
+          openTaskModal={memoizedOpenTaskModal} // Use memoized versions
+          openProjectModal={memoizedOpenProjectModal}
+          openNoteModal={memoizedOpenNoteModal}
+          openAreaModal={memoizedOpenAreaModal}
+          openTagModal={memoizedOpenTagModal}
           notes={notes}
           areas={areas}
           tags={tags}
         />
         <div
           className={`flex-1 flex items-center justify-center bg-gray-100 dark:bg-gray-800 transition-all duration-300 ease-in-out ${mainContentMarginLeft}`}
+          style={{ paddingTop: '4rem' }} // Add padding to account for fixed Navbar height
         >
-          <div className="text-xl text-gray-700 dark:text-gray-200">
-            Loading...
+          <div className="text-xl font-semibold text-gray-700 dark:text-gray-200">
+            Loading application data...
           </div>
         </div>
       </div>
@@ -406,7 +435,7 @@ const Layout: React.FC<LayoutProps> = ({
 
   if (isError) {
     return (
-      <div className={`min-h-screen ${isDarkMode ? "dark" : ""}`}>
+      <div className={`min-h-screen flex flex-col ${isDarkMode ? "dark" : ""}`}>
         <Navbar
           isDarkMode={isDarkMode}
           toggleDarkMode={toggleDarkMode}
@@ -414,6 +443,7 @@ const Layout: React.FC<LayoutProps> = ({
           setCurrentUser={setCurrentUser}
           isSidebarOpen={isSidebarOpen}
           setIsSidebarOpen={setIsSidebarOpen}
+          handleLogout={handleLogout}
         />
         <Sidebar
           isSidebarOpen={isSidebarOpen}
@@ -421,26 +451,27 @@ const Layout: React.FC<LayoutProps> = ({
           currentUser={currentUser}
           isDarkMode={isDarkMode}
           toggleDarkMode={toggleDarkMode}
-          openTaskModal={openTaskModal}
-          openProjectModal={openProjectModal}
-          openNoteModal={openNoteModal}
-          openAreaModal={openAreaModal}
-          openTagModal={openTagModal}
+          openTaskModal={memoizedOpenTaskModal}
+          openProjectModal={memoizedOpenProjectModal}
+          openNoteModal={memoizedOpenNoteModal}
+          openAreaModal={memoizedOpenAreaModal}
+          openTagModal={memoizedOpenTagModal}
           notes={notes}
           areas={areas}
           tags={tags}
         />
         <div
           className={`flex-1 flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-800 transition-all duration-300 ease-in-out ${mainContentMarginLeft}`}
+          style={{ paddingTop: '4rem' }}
         >
-          <div className="text-xl text-red-500">Something went wrong!</div>
+          <div className="text-xl text-red-500">Something went wrong while loading initial data. Please try again.</div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className={`min-h-screen ${isDarkMode ? "dark" : ""}`}>
+    <div className={`min-h-screen flex flex-col ${isDarkMode ? "dark" : ""}`}>
       <Navbar
         isDarkMode={isDarkMode}
         toggleDarkMode={toggleDarkMode}
@@ -448,6 +479,7 @@ const Layout: React.FC<LayoutProps> = ({
         setCurrentUser={setCurrentUser}
         isSidebarOpen={isSidebarOpen}
         setIsSidebarOpen={setIsSidebarOpen}
+        handleLogout={handleLogout}
       />
       <Sidebar
         isSidebarOpen={isSidebarOpen}
@@ -455,30 +487,32 @@ const Layout: React.FC<LayoutProps> = ({
         currentUser={currentUser}
         isDarkMode={isDarkMode}
         toggleDarkMode={toggleDarkMode}
-        openTaskModal={openTaskModal}
-        openProjectModal={openProjectModal}
-        openNoteModal={openNoteModal}
-        openAreaModal={openAreaModal}
-        openTagModal={openTagModal}
+        openTaskModal={memoizedOpenTaskModal} // Pass memoized functions
+        openProjectModal={memoizedOpenProjectModal}
+        openNoteModal={memoizedOpenNoteModal}
+        openAreaModal={memoizedOpenAreaModal}
+        openTagModal={memoizedOpenTagModal}
         notes={notes}
         areas={areas}
         tags={tags}
       />
 
+      {/* Main Content Area */}
       <div
-        className={`transition-all duration-300 ease-in-out ${mainContentMarginLeft}`}
+        className={`flex-1 transition-all duration-300 ease-in-out ${mainContentMarginLeft}`}
+        style={{ paddingTop: '4rem' }} // Account for fixed Navbar height
       >
-        <div className="flex flex-col bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 min-h-screen overflow-y-auto">
-          <div className="flex-grow py-6 px-2 md:px-6 pt-24">
-            <div className="w-full max-w-5xl mx-auto">{children}</div>
+        <div className="flex flex-col bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 min-h-screen">
+          <div className="flex-grow py-6 px-2 md:px-6">
+            <div className="w-full max-w-5xl mx-auto">{children}</div> {/* This is your Outlet content */}
           </div>
         </div>
       </div>
 
-      {/* Hide floating + button when any modal is open to prevent overlap with save buttons */}
+      {/* Floating Plus Button (Quick Capture) */}
       {!isTaskModalOpen && !isProjectModalOpen && !isNoteModalOpen && !isAreaModalOpen && !isTagModalOpen && globalModalCount === 0 && (
         <button
-          onClick={() => openTaskModal('simplified')}
+          onClick={() => memoizedOpenTaskModal('simplified')} // Use memoized function
           className="fixed bottom-6 right-6 bg-blue-500 hover:bg-blue-600 text-white rounded-full p-4 shadow-lg focus:outline-none transform transition-transform duration-200 hover:scale-110 z-50"
           aria-label="Quick Capture"
           title="Quick Capture"
@@ -487,23 +521,25 @@ const Layout: React.FC<LayoutProps> = ({
         </button>
       )}
 
+      {/* Modals - Render conditionally to avoid unnecessary mounting/unmounting */}
       {isTaskModalOpen && (
         taskModalType === 'simplified' ? (
           <SimplifiedTaskModal
             isOpen={isTaskModalOpen}
-            onClose={closeTaskModal}
+            onClose={memoizedCloseTaskModal}
             onSave={handleSaveTask}
           />
         ) : (
           <TaskModal
             isOpen={isTaskModalOpen}
-            onClose={closeTaskModal}
+            onClose={memoizedCloseTaskModal}
             task={{
-              name: "",
-              status: "not_started",
+              name: newTask?.name || "", // Use newTask state, or default. Consider a proper 'selectedTask' state for full modal edits.
+              status: newTask?.status || "not_started",
+              // ... other default task properties
             }}
             onSave={handleSaveTask}
-            onDelete={async () => {}}
+            onDelete={async () => { /* Add actual delete logic here */ }} // This should ideally be a memoized function too
             projects={projects}
             onCreateProject={handleCreateProject}
           />
@@ -513,7 +549,7 @@ const Layout: React.FC<LayoutProps> = ({
       {isProjectModalOpen && (
         <ProjectModal
           isOpen={isProjectModalOpen}
-          onClose={closeProjectModal}
+          onClose={memoizedCloseProjectModal}
           onSave={handleSaveProject}
           areas={areas}
         />
@@ -522,7 +558,7 @@ const Layout: React.FC<LayoutProps> = ({
       {isNoteModalOpen && (
         <NoteModal
           isOpen={isNoteModalOpen}
-          onClose={closeNoteModal}
+          onClose={memoizedCloseNoteModal}
           onSave={handleSaveNote}
           note={selectedNote}
         />
@@ -531,7 +567,7 @@ const Layout: React.FC<LayoutProps> = ({
       {isAreaModalOpen && (
         <AreaModal
           isOpen={isAreaModalOpen}
-          onClose={closeAreaModal}
+          onClose={memoizedCloseAreaModal}
           onSave={handleSaveArea}
           area={selectedArea}
         />
@@ -540,7 +576,7 @@ const Layout: React.FC<LayoutProps> = ({
       {isTagModalOpen && (
         <TagModal
           isOpen={isTagModalOpen}
-          onClose={closeTagModal}
+          onClose={memoizedCloseTagModal}
           onSave={handleSaveTag}
           tag={selectedTag}
         />
