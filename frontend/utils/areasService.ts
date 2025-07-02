@@ -1,5 +1,5 @@
 import { Area } from "../entities/Area";
-import { handleAuthResponse } from "./authUtils";
+import { handleAuthResponse } from "./http";
 
 export const fetchAreas = async (): Promise<Area[]> => {
   const response = await fetch("/api/areas?active=true", {

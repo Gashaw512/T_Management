@@ -1,4 +1,4 @@
-import { handleAuthResponse } from "./authUtils";
+import { handleAuthResponse, getDefaultHeaders, getPostHeaders } from "./http"; // Ensure these are imported
 
 interface Profile {
   id: number;
@@ -27,156 +27,133 @@ interface SchedulerStatus {
 
 interface TelegramBotInfo {
   username: string;
-  polling_status: any;
+  polling_status: any; // Consider a more specific type if possible
   chat_url: string;
 }
 
 export const fetchProfile = async (): Promise<Profile> => {
   const response = await fetch('/api/profile', {
     credentials: 'include',
-    headers: {
-      'Accept': 'application/json',
-    },
+    headers: getDefaultHeaders(), // Use getDefaultHeaders
   });
-  await handleAuthResponse(response, 'Failed to fetch profile data.');
-  return await response.json();
+  const handledResponse = await handleAuthResponse(response, 'Failed to fetch profile data.');
+  return await handledResponse.json(); // Use handledResponse
 };
 
 export const updateProfile = async (profileData: Partial<Profile>): Promise<Profile> => {
   const response = await fetch('/api/profile', {
     method: 'PATCH',
     credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    },
+    headers: getPostHeaders(), // Use getPostHeaders
     body: JSON.stringify(profileData),
   });
-  await handleAuthResponse(response, 'Failed to update profile.');
-  return await response.json();
+  const handledResponse = await handleAuthResponse(response, 'Failed to update profile.');
+  return await handledResponse.json(); // Use handledResponse
 };
 
 export const fetchSchedulerStatus = async (): Promise<SchedulerStatus> => {
   const response = await fetch('/api/profile/task-summary/status', {
     credentials: 'include',
-    headers: {
-      'Accept': 'application/json',
-    },
+    headers: getDefaultHeaders(), // Use getDefaultHeaders
   });
-  await handleAuthResponse(response, 'Failed to fetch scheduler status.');
-  return await response.json();
+  const handledResponse = await handleAuthResponse(response, 'Failed to fetch scheduler status.');
+  return await handledResponse.json(); // Use handledResponse
 };
 
 export const sendTaskSummaryNow = async (): Promise<any> => {
   const response = await fetch('/api/profile/task-summary/send-now', {
     method: 'POST',
     credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    },
+    headers: getPostHeaders(), // Use getPostHeaders
+    body: JSON.stringify({}), // Assuming this endpoint needs an empty JSON body for POST
   });
-  await handleAuthResponse(response, 'Failed to send task summary.');
-  return await response.json();
+  const handledResponse = await handleAuthResponse(response, 'Failed to send task summary.');
+  return await handledResponse.json(); // Use handledResponse
 };
 
 export const fetchTelegramPollingStatus = async (): Promise<any> => {
   const response = await fetch('/api/telegram/polling-status', {
     credentials: 'include',
-    headers: {
-      'Accept': 'application/json',
-    },
+    headers: getDefaultHeaders(), // Use getDefaultHeaders
   });
-  await handleAuthResponse(response, 'Failed to fetch polling status.');
-  return await response.json();
+  const handledResponse = await handleAuthResponse(response, 'Failed to fetch polling status.');
+  return await handledResponse.json(); // Use handledResponse
 };
 
 export const setupTelegram = async (botToken: string, chatId: string): Promise<TelegramBotInfo> => {
   const response = await fetch('/api/telegram/setup', {
     method: 'POST',
     credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    },
+    headers: getPostHeaders(), // Use getPostHeaders
     body: JSON.stringify({
       bot_token: botToken,
       chat_id: chatId,
     }),
   });
-  await handleAuthResponse(response, 'Failed to setup telegram.');
-  return await response.json();
+  const handledResponse = await handleAuthResponse(response, 'Failed to setup telegram.');
+  return await handledResponse.json(); // Use handledResponse
 };
 
 export const startTelegramPolling = async (): Promise<any> => {
   const response = await fetch('/api/telegram/start-polling', {
     method: 'POST',
     credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    },
+    headers: getPostHeaders(), // Use getPostHeaders
+    body: JSON.stringify({}), // Assuming this endpoint needs an empty JSON body for POST
   });
-  await handleAuthResponse(response, 'Failed to start telegram polling.');
-  return await response.json();
+  const handledResponse = await handleAuthResponse(response, 'Failed to start telegram polling.');
+  return await handledResponse.json(); // Use handledResponse
 };
 
 export const stopTelegramPolling = async (): Promise<any> => {
   const response = await fetch('/api/telegram/stop-polling', {
     method: 'POST',
     credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    },
+    headers: getPostHeaders(), // Use getPostHeaders
+    body: JSON.stringify({}), // Assuming this endpoint needs an empty JSON body for POST
   });
-  await handleAuthResponse(response, 'Failed to stop telegram polling.');
-  return await response.json();
+  const handledResponse = await handleAuthResponse(response, 'Failed to stop telegram polling.');
+  return await handledResponse.json(); // Use handledResponse
 };
 
 export const testTelegram = async (userId: number, message: string): Promise<any> => {
   const response = await fetch(`/api/telegram/test/${userId}`, {
     method: 'POST',
     credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    },
+    headers: getPostHeaders(), // Use getPostHeaders
     body: JSON.stringify({ text: message }),
   });
-  await handleAuthResponse(response, 'Failed to send test message.');
-  return await response.json();
+  const handledResponse = await handleAuthResponse(response, 'Failed to send test message.');
+  return await handledResponse.json(); // Use handledResponse
 };
 
 export const toggleTaskSummary = async (): Promise<any> => {
   const response = await fetch('/api/profile/task-summary/toggle', {
     method: 'POST',
     credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    },
+    headers: getPostHeaders(), // Use getPostHeaders
+    body: JSON.stringify({}), // Assuming this endpoint needs an empty JSON body for POST
   });
-  await handleAuthResponse(response, 'Failed to toggle task summary.');
-  return await response.json();
+  const handledResponse = await handleAuthResponse(response, 'Failed to toggle task summary.');
+  return await handledResponse.json(); // Use handledResponse
 };
 
 export const updateTaskSummaryFrequency = async (frequency: string): Promise<any> => {
   const response = await fetch('/api/profile/task-summary/frequency', {
     method: 'POST',
     credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    },
+    headers: getPostHeaders(), // Use getPostHeaders
     body: JSON.stringify({ frequency }),
   });
-  await handleAuthResponse(response, 'Failed to update task summary frequency.');
-  return await response.json();
+  const handledResponse = await handleAuthResponse(response, 'Failed to update task summary frequency.');
+  return await handledResponse.json(); // Use handledResponse
 };
 
+// Re-export the Profile interface
 export type { Profile };
 
+// These functions correctly handle errors by providing a default value,
+// so no change needed to their try/catch blocks.
 export const getTaskIntelligenceEnabled = async (): Promise<boolean> => {
   try {
     const profile = await fetchProfile();

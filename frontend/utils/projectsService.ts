@@ -1,5 +1,5 @@
 import { Project } from "../entities/Project";
-import { handleAuthResponse } from "./authUtils";
+import { handleAuthResponse } from "./http";
 
 export const fetchProjects = async (activeFilter = "all", areaFilter = ""): Promise<Project[]> => {
   let url = `/api/projects`;

@@ -1,36 +1,27 @@
-export const getDefaultHeaders = (): Record<string, string> => {
-  return {
-    'Accept': 'application/json',
-    'X-Requested-With': 'XMLHttpRequest',
-    'Origin': window.location.origin,
-  };
-};
+import { getPostHeaders, handleAuthResponse } from './http'; 
 
-export const getPostHeaders = (): Record<string, string> => {
-  return {
-    ...getDefaultHeaders(),
-    'Content-Type': 'application/json',
-  };
-};
+/**
+ * Calls the backend API to change a user's password.
+ * @param {string} currentPassword - The user's current password.
+ * @param {string} newPassword - The new password.
+ * @returns {Promise<void>} A promise that resolves if the password change is successful.
+ * @throws {Error} If the API call fails or the passwords don't meet requirements/match current.
+ */
+export const changePassword = async (currentPassword: string, newPassword: string): Promise<void> => {
+  try {
+    const response = await fetch('/api/auth/change-password', {
+      method: 'POST',
+      headers: getPostHeaders(), // Use getPostHeaders for POST request with body
+      body: JSON.stringify({ currentPassword, newPassword }),
+      credentials: 'include',
+    });
 
-let isRedirecting = false;
+    // Handle authentication and other errors centrally
+    await handleAuthResponse(response, 'Failed to change password.');
 
-export const handleAuthResponse = async (response: Response, errorMessage: string): Promise<Response> => {
-  if (!response.ok) {
-    if (response.status === 401) {
-      if (window.location.pathname !== '/login' && !isRedirecting) {
-        isRedirecting = true;
-        setTimeout(() => {
-          window.location.href = '/login';
-        }, 100);
-      }
-      throw new Error('Authentication required');
-    }
-    throw new Error(errorMessage);
+    // No data expected back on success, just a 200 OK handled by handleAuthResponse
+  } catch (error: any) {
+    console.error('Error in changePassword service:', error);
+    throw error;
   }
-  return response;
-};
-
-export const isAuthError = (error: any): boolean => {
-  return error?.message && error.message.includes('Authentication required');
 };

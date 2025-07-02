@@ -4,7 +4,7 @@ import { useToast } from "../Shared/ToastContext";
 // Removed useTranslation import
 // import { useTranslation } from "react-i18next";
 import { createInboxItemWithStore } from "../../utils/inboxService";
-import { isAuthError } from "../../utils/authUtils";
+import { isAuthError } from "../../utils/http";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { useModalEvents } from "../../hooks/useModalEvents";
 // import UrlPreview from "../Shared/UrlPreview";

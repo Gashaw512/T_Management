@@ -1,7 +1,8 @@
 /**
  * Service for URL-related operations like extracting titles from web pages
  */
-import { handleAuthResponse } from "./authUtils";
+// import { handleAuthResponse } from "./authUtils";
+import { handleAuthResponse } from './http';
 
 export interface UrlTitleResult {
   url: string;

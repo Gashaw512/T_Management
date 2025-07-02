@@ -1,6 +1,8 @@
 import { Metrics } from "../entities/Metrics";
 import { Task } from "../entities/Task";
-import { handleAuthResponse, getDefaultHeaders, getPostHeaders } from "./authUtils";
+// import { handleAuthResponse, getDefaultHeaders, getPostHeaders } from "./authUtils";
+// Correct import path
+import { handleAuthResponse, getDefaultHeaders, getPostHeaders } from './http';
 
 export const fetchTasks = async (query = ''): Promise<{ tasks: Task[]; metrics: Metrics }> => {
   const response = await fetch(`/api/tasks${query}`, {

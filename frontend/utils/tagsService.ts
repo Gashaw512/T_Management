@@ -1,5 +1,5 @@
 import { Tag } from "../entities/Tag";
-import { handleAuthResponse } from "./authUtils";
+import { handleAuthResponse } from "./http";
 
 export const fetchTags = async (): Promise<Tag[]> => {
   try {
